@@ -1,18 +1,25 @@
 import { NextResponse } from "next/server";
 import { connectDB, User } from "@/lib/db";
 import { requireAuth } from "@/lib/auth";
+import mongoose from "mongoose";
 
 export async function GET() {
   try {
     const session = await requireAuth();
     await connectDB();
 
-    const user = User.findById(session.userId);
+    if (!mongoose.Types.ObjectId.isValid(session.userId)) {
+      const response = NextResponse.json({ error: "Invalid session" }, { status: 401 });
+      response.cookies.set("token", "", { maxAge: 0 });
+      return response;
+    }
+
+    const user = await User.findById(session.userId).lean();
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const { password, ...safeUser } = user;
+    const { password, ...safeUser } = user as any;
 
     return NextResponse.json({ user: safeUser });
   } catch (error: any) {
@@ -38,9 +45,9 @@ export async function PUT(request: Request) {
     if (data.name) updateData.name = data.name;
     if (data.avatar) updateData.avatar = data.avatar;
 
-    const user = User.findByIdAndUpdate(session.userId, updateData as any, {
+    const user = await User.findByIdAndUpdate(session.userId, updateData, {
       new: true,
-    });
+    }).lean();
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });

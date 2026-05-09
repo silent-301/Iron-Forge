@@ -1,6 +1,4 @@
-import { connectDB } from "../src/lib/db";
-import { User } from "../src/lib/models/User";
-import { Product } from "../src/lib/models/Product";
+import { connectDB, User, Product } from "../src/lib/db";
 import bcrypt from "bcryptjs";
 
 async function seed() {

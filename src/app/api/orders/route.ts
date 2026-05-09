@@ -16,24 +16,26 @@ export async function GET(request: Request) {
       const status = searchParams.get("status");
       const skip = (page - 1) * limit;
 
-      let allOrders = Order.find();
-      if (status) {
-        allOrders = allOrders.filter((o) => o.status === status);
-      }
+      const query: any = {};
+      if (status) query.status = status;
 
-      allOrders.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      const total = await Order.countDocuments(query);
+      const orders = await Order.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+
+      // Simple manual population since userId is a string
+      const ordersWithUsers = await Promise.all(
+        orders.map(async (o: any) => {
+          const user = await User.findById(o.userId).select("name email").lean();
+          return { ...o, user };
+        })
       );
 
-      const total = allOrders.length;
-      const orders = allOrders.slice(skip, skip + limit).map((o) => ({
-        ...o,
-        userId: User.findById(o.userId) || null,
-      }));
-
       return NextResponse.json({
-        orders,
+        orders: ordersWithUsers,
         pagination: { page, limit, total, pages: Math.ceil(total / limit) },
       });
     }
@@ -43,14 +45,13 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get("limit") || "10");
     const skip = (page - 1) * limit;
 
-    let allOrders = Order.find().filter((o) => o.userId === session.userId);
-    allOrders.sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-
-    const total = allOrders.length;
-    const orders = allOrders.slice(skip, skip + limit);
+    const query = { userId: session.userId };
+    const total = await Order.countDocuments(query);
+    const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean();
 
     return NextResponse.json({
       orders,
@@ -85,14 +86,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const allProducts = Product.find();
-    const productMap = new Map(allProducts.map((p) => [p._id, p]));
-
     let subtotal = 0;
     const orderItems = [];
 
     for (const item of items) {
-      const product = productMap.get(item.productId);
+      const product = await Product.findById(item.productId);
       if (!product) {
         return NextResponse.json(
           { error: `Product ${item.productId} not found` },
@@ -118,13 +116,17 @@ export async function POST(request: Request) {
         size: item.size,
         color: item.color,
       });
+
+      // Update stock
+      product.stock -= item.quantity;
+      await product.save();
     }
 
     const shipping = subtotal > 100 ? 0 : 9.99;
     const tax = subtotal * 0.08;
     const total = subtotal + shipping + tax;
 
-    const order = Order.create({
+    const order = await Order.create({
       orderNumber: `FIT-${uuidv4().slice(0, 8).toUpperCase()}`,
       userId: session.userId,
       items: orderItems,
@@ -135,14 +137,7 @@ export async function POST(request: Request) {
       total,
       paymentMethod,
       status: "confirmed",
-    } as any);
-
-    for (const item of orderItems) {
-      const prod = productMap.get(item.productId);
-      if (prod) {
-        Product.findByIdAndUpdate(prod._id, { stock: prod.stock - item.quantity } as any);
-      }
-    }
+    });
 
     return NextResponse.json({ order }, { status: 201 });
   } catch (error: any) {

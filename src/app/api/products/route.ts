@@ -18,62 +18,57 @@ export async function GET(request: Request) {
     const maxPrice = searchParams.get("maxPrice");
     const admin = searchParams.get("admin");
 
-    let allProducts = Product.find();
+    const query: any = {};
 
     if (admin !== "true") {
-      allProducts = allProducts.filter((p) => p.isActive);
+      query.isActive = true;
     }
 
     if (category) {
-      allProducts = allProducts.filter((p) => p.category === category);
+      query.category = category;
     }
 
     if (featured === "true") {
-      allProducts = allProducts.filter((p) => p.featured);
+      query.featured = true;
     }
 
     if (bestSeller === "true") {
-      allProducts = allProducts.filter((p) => p.bestSeller);
+      query.bestSeller = true;
     }
 
     if (search) {
-      const q = search.toLowerCase();
-      allProducts = allProducts.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.description.toLowerCase().includes(q) ||
-          (p.tags || []).some((t) => t.toLowerCase().includes(q))
-      );
+      query.$or = [
+        { name: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+        { tags: { $in: [new RegExp(search, "i")] } },
+      ];
     }
 
-    if (minPrice) {
-      const min = parseFloat(minPrice);
-      allProducts = allProducts.filter((p) => p.price >= min);
+    if (minPrice || maxPrice) {
+      query.price = {};
+      if (minPrice) query.price.$gte = parseFloat(minPrice);
+      if (maxPrice) query.price.$lte = parseFloat(maxPrice);
     }
 
-    if (maxPrice) {
-      const max = parseFloat(maxPrice);
-      allProducts = allProducts.filter((p) => p.price <= max);
-    }
-
+    const sortOption: any = {};
     if (sort === "price-asc") {
-      allProducts.sort((a, b) => a.price - b.price);
+      sortOption.price = 1;
     } else if (sort === "price-desc") {
-      allProducts.sort((a, b) => b.price - a.price);
+      sortOption.price = -1;
     } else if (sort === "name") {
-      allProducts.sort((a, b) => a.name.localeCompare(b.name));
+      sortOption.name = 1;
     } else if (sort === "-name") {
-      allProducts.sort((a, b) => b.name.localeCompare(a.name));
+      sortOption.name = -1;
     } else {
-      allProducts.sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
+      sortOption.createdAt = -1;
     }
 
-    const total = allProducts.length;
+    const total = await Product.countDocuments(query);
     const skip = (page - 1) * limit;
-    const products = allProducts.slice(skip, skip + limit);
+    const products = await Product.find(query)
+      .sort(sortOption)
+      .skip(skip)
+      .limit(limit);
 
     return NextResponse.json({
       products,
@@ -114,7 +109,7 @@ export async function POST(request: Request) {
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/(^-|-$)/g, "");
 
-    const product = Product.create({ ...data, slug });
+    const product = await Product.create({ ...data, slug });
 
     return NextResponse.json({ product }, { status: 201 });
   } catch (error: any) {

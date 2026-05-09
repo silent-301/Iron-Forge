@@ -9,7 +9,7 @@ export async function GET(
   try {
     await connectDB();
     const { id } = await params;
-    const product = Product.findById(id);
+    const product = await Product.findById(id);
 
     if (!product) {
       return NextResponse.json(
@@ -46,7 +46,7 @@ export async function PUT(
         .replace(/(^-|-$)/g, "");
     }
 
-    const product = Product.findByIdAndUpdate(id, data, { new: true });
+    const product = await Product.findByIdAndUpdate(id, data, { new: true });
 
     if (!product) {
       return NextResponse.json(
@@ -80,7 +80,7 @@ export async function DELETE(
     await connectDB();
 
     const { id } = await params;
-    const product = Product.findByIdAndDelete(id);
+    const product = await Product.findByIdAndDelete(id);
 
     if (!product) {
       return NextResponse.json(

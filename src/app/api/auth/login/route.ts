@@ -15,7 +15,7 @@ export async function POST(request: Request) {
 
     await connectDB();
 
-    const user = User.findOne({ email: email.toLowerCase() });
+    const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
       return NextResponse.json(
         { error: "Invalid credentials" },

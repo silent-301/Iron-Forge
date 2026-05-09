@@ -22,7 +22,7 @@ export async function POST(request: Request) {
 
     await connectDB();
 
-    const existingUser = User.findOne({ email: email.toLowerCase() });
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return NextResponse.json(
         { error: "Email already in use" },
@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     }
 
     const hashedPassword = await hashPassword(password);
-    const user = User.create({
+    const user = await User.create({
       name,
       email: email.toLowerCase(),
       password: hashedPassword,

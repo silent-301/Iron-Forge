@@ -11,13 +11,13 @@ export async function GET(
     await connectDB();
 
     const { id } = await params;
-    const order = Order.findById(id);
+    const order = await Order.findById(id).lean();
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
     }
 
-    const orderUser = User.findById(order.userId);
+    const orderUser = await User.findById(order.userId).select("name email").lean();
     if (
       order.userId !== session.userId &&
       session.role !== "admin"
@@ -25,7 +25,7 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    return NextResponse.json({ order: { ...order, userId: orderUser || order.userId } });
+    return NextResponse.json({ order: { ...order, user: orderUser } });
   } catch (error: any) {
     if (error.message === "Unauthorized") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -64,9 +64,9 @@ export async function PUT(
       if (data[key] !== undefined) updateData[key] = data[key];
     }
 
-    const order = Order.findByIdAndUpdate(id, updateData as any, {
+    const order = await Order.findByIdAndUpdate(id, updateData, {
       new: true,
-    });
+    }).lean();
 
     if (!order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
