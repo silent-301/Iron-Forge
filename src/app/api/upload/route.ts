@@ -1,40 +1,56 @@
-import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
 import { put } from "@vercel/blob";
+import { NextResponse } from "next/server";
+import { getSession } from "@/lib/auth";
 
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
-
-    const formData = await request.formData();
-    const file = formData.get("file") as File | null;
-
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    const session = await getSession();
+    if (!session) {
+      return NextResponse.json(
+        { success: false, error: "Unauthorized" },
+        { status: 401 }
+      );
     }
 
-    const filename = `${Date.now()}-${file.name}`;
-    
-    // Upload to Vercel Blob
-    const blob = await put(filename, file, {
+    const formData = await request.formData();
+    const file = formData.get("file") as File;
+
+    if (!file) {
+      return NextResponse.json(
+        { success: false, error: "No file provided" },
+        { status: 400 }
+      );
+    }
+
+    if (!file.type.startsWith("image/")) {
+      return NextResponse.json(
+        { success: false, error: "Only image files are allowed" },
+        { status: 400 }
+      );
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      return NextResponse.json(
+        { success: false, error: "File size must be less than 5MB" },
+        { status: 400 }
+      );
+    }
+
+    const blob = await put(file.name, file, {
       access: "public",
       addRandomSuffix: true,
     });
 
     return NextResponse.json({
-      url: blob.url,
-      filename: blob.pathname,
+      success: true,
+      data: {
+        url: blob.url,
+      },
     });
-  } catch (error: any) {
-    if (error.message === "Unauthorized") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    if (error.message === "Forbidden") {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    console.error("Upload error:", error);
+  } catch (error) {
+    console.error("Blob upload error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { success: false, error: "Internal Server Error" },
       { status: 500 }
     );
   }
