@@ -72,7 +72,7 @@ export default function EditProductPage() {
       formData.append("file", file);
       const res = await fetch("/api/upload", { method: "POST", body: formData });
       const data = await res.json();
-      if (res.ok) setImages((prev) => [...prev, data.url]);
+      if (res.ok && data.success) setImages((prev) => [...prev, data.data.url]);
       else setError(data.error || "Upload failed");
     } catch (err: any) {
       setError(err.message);
@@ -176,6 +176,7 @@ export default function EditProductPage() {
               value={form.description}
               onChange={(e) => updateField("description", e.target.value)}
               rows={4}
+              required
               className="w-full px-4 py-3 bg-black border border-zinc-800 rounded text-white focus:outline-none focus:border-neon"
             />
           </div>

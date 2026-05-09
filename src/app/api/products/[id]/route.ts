@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectDB, Product } from "@/lib/db";
 import { requireAdmin } from "@/lib/auth";
+import mongoose from "mongoose";
 
 export async function GET(
   request: Request,
@@ -9,7 +10,12 @@ export async function GET(
   try {
     await connectDB();
     const { id } = await params;
-    const product = await Product.findById(id);
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
+    }
+
+    const product = await Product.findById(id).lean();
 
     if (!product) {
       return NextResponse.json(
@@ -37,6 +43,11 @@ export async function PUT(
     await connectDB();
 
     const { id } = await params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
+    }
+
     const data = await request.json();
 
     if (data.name && !data.slug) {
@@ -46,7 +57,7 @@ export async function PUT(
         .replace(/(^-|-$)/g, "");
     }
 
-    const product = await Product.findByIdAndUpdate(id, data, { new: true });
+    const product = await Product.findByIdAndUpdate(id, data, { new: true }).lean();
 
     if (!product) {
       return NextResponse.json(
@@ -80,7 +91,12 @@ export async function DELETE(
     await connectDB();
 
     const { id } = await params;
-    const product = await Product.findByIdAndDelete(id);
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return NextResponse.json({ error: "Invalid product ID" }, { status: 400 });
+    }
+
+    const product = await Product.findByIdAndDelete(id).lean();
 
     if (!product) {
       return NextResponse.json(

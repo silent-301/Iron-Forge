@@ -40,7 +40,7 @@ export async function GET(request: Request) {
       query.$or = [
         { name: { $regex: search, $options: "i" } },
         { description: { $regex: search, $options: "i" } },
-        { tags: { $in: [new RegExp(search, "i")] } },
+        { tags: { $regex: search, $options: "i" } },
       ];
     }
 
@@ -95,9 +95,9 @@ export async function POST(request: Request) {
 
     const data = await request.json();
 
-    if (!data.name || !data.price || !data.category) {
+    if (!data.name || !data.price || !data.category || !data.description) {
       return NextResponse.json(
-        { error: "Name, price, and category are required" },
+        { error: "Name, price, category, and description are required" },
         { status: 400 }
       );
     }
