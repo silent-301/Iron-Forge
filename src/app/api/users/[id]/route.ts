@@ -11,12 +11,12 @@ export async function GET(
     await connectDB();
 
     const { id } = await params;
-    const user = User.findById(id);
+    const user = await User.findById(id).lean();
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const { password, ...safeUser } = user;
+    const { password, ...safeUser } = user as any;
     return NextResponse.json({ user: safeUser });
   } catch (error: any) {
     if (error.message === "Unauthorized") {
@@ -53,15 +53,15 @@ export async function PUT(
       delete data.role;
     }
 
-    const user = User.findByIdAndUpdate(id, data as any, {
+    const user = await User.findByIdAndUpdate(id, data, {
       new: true,
-    });
+    }).lean();
 
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const { password, ...safeUser } = user;
+    const { password, ...safeUser } = user as any;
     return NextResponse.json({ user: safeUser });
   } catch (error: any) {
     if (error.message === "Unauthorized") {
